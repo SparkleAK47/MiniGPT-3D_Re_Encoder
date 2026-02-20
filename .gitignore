@@ -7,10 +7,11 @@ dist
 # Log
 *.log
 *.log.*
-
+logs/
 
 # Data
 !**/alpaca-data-conversation.json
+data/
 
 # Editor
 .idea
@@ -33,4 +34,18 @@ ckpts*
 # DevContainer
 !.devcontainer/*
 
-# Demo
+# zip or similar compressed files
+*.zip
+*.tar.gz
+*.pth
+*.pt
+*.bin
+
+# huggingface
+=0.19.0
+
+# else
+evaluate_all_traditional.sh
+test.sh
+check_ckpt.py
+performance_diagnosis.py
