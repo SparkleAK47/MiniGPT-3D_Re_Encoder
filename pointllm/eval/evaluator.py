@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from utils import OpenAIGPT
+from pointllm.eval.utils import OpenAIGPT
 from tqdm import tqdm
 from multiprocessing import Pool
 import random

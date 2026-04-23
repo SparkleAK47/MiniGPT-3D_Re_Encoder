@@ -49,3 +49,5 @@ evaluate_all_traditional.sh
 test.sh
 check_ckpt.py
 performance_diagnosis.py
+check_weights.py
+test_Phi-2_is_ok.py
