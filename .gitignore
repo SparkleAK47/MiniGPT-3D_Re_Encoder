@@ -51,3 +51,9 @@ check_ckpt.py
 performance_diagnosis.py
 check_weights.py
 test_Phi-2_is_ok.py
+sfr-vision-language-research^LAVIS/
+hybrid.py
+log_stage_1.txt
+log_stage_1.txt
+log_stage_3.txt
+log_stage_4.txt

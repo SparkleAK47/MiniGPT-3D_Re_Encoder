@@ -5,10 +5,10 @@ model:
   end_sym: "###"
   prompt_template: 'Instruct: {} /n Output: '
   llama_model: "./params_weight/Phi_2"
-  # ckpt: './params_weight/MiniGPT_3D_stage_3/MiniGPT_3D_stage_3.pth'
-  # second_ckpt: "./params_weight/MiniGPT_3D_stage_4/MiniGPT_3D_stage_4.pth"
-  ckpt: '/data/workspace/MiniGPT-3D/output/test/stage_3/checkpoint_2.pth'
-  second_ckpt: "/data/workspace/MiniGPT-3D/output/test/stage_4/checkpoint_0.pth"
+  ckpt: './params_weight/MiniGPT_3D_stage_3/MiniGPT_3D_stage_3.pth'
+  second_ckpt: "./params_weight/MiniGPT_3D_stage_4/MiniGPT_3D_stage_4.pth"
+  # ckpt: '/data/workspace/MiniGPT-3D/output/test/stage_3/checkpoint_2.pth'
+  # second_ckpt: "/data/workspace/MiniGPT-3D/output/test/stage_4/checkpoint_0.pth"
   lora_r: 64
   lora_alpha: 16
   pc_linear_layer: 2

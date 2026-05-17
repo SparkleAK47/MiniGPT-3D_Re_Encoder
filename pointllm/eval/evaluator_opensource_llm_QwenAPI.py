@@ -72,13 +72,21 @@ GPT_PRICES = {
         "price_1k_prompt_tokens": 0.005,
         "price_1k_completion_tokens": 0.01
     },
+    "qwen-flash": {
+        "price_1k_prompt_tokens": 0.00036,  # 0.36元/百万tokens = 0.00036元/千tokens
+        "price_1k_completion_tokens": 0.00036
+    },
+    "qwen3.6-flash": {
+        "price_1k_prompt_tokens": 0.0012,
+        "price_1k_completion_tokens": 0.0072
+    },
 }
 from typing import List, Optional, Tuple, Dict
 History = List[Tuple[str, str]]
 Messages = List[Dict[str, str]]
 
 class OpenAIOpenFreeFormClsEvaluator():
-    def __init__(self, inputs, output_dir, output_file, model_type="qwen2-72b-instruct", client=None):
+    def __init__(self, inputs, output_dir, output_file, model_type="qwen-flash", client=None):
         """
         Args:
             inputs: A dictionary containing the results of the evaluation. It contains two keys: "results" and "prompt".
@@ -111,8 +119,8 @@ class OpenAIOpenFreeFormClsEvaluator():
         }
 
         # * price
-        self.price_1k_prompt_tokens = GPT_PRICES["qwen2-72b-instruct"]["price_1k_prompt_tokens"]
-        self.price_1k_completion_tokens = GPT_PRICES["qwen2-72b-instruct"]["price_1k_completion_tokens"]
+        self.price_1k_prompt_tokens = GPT_PRICES.get(model_type, {}).get("price_1k_prompt_tokens", 0)
+        self.price_1k_completion_tokens = GPT_PRICES.get(model_type, {}).get("price_1k_completion_tokens", 0)
 
         print(f"OpenAIGPT config: ")
         print(self.default_chat_parameters)
@@ -143,6 +151,11 @@ class OpenAIOpenFreeFormClsEvaluator():
             model=self.model_type,
             messages=messages,
             result_format='message',
+            temperature=0.01,  # 极低温度，保证输出确定性
+            top_p=0.001,
+            top_k=1,
+            seed=0,  # 固定随机种子，多次评估结果完全一致
+            max_tokens=512  # 限制输出长度，避免冗余内容破坏格式解析
         )
         nested_json_str = gen.output.choices[0].message.content
 
@@ -349,7 +362,7 @@ class OpenAIOpenFreeFormClsEvaluator():
 
 
 class OpenAICloseSetClsEvaluator(OpenAIOpenFreeFormClsEvaluator):
-    def __init__(self, inputs, output_dir, output_file, model_type="qwen2-72b-instruct", client=None):
+    def __init__(self, inputs, output_dir, output_file, model_type="qwen-flash", client=None):
         super().__init__(inputs, output_dir, output_file, model_type, client=client)
         self.gpt_prompt = LLM_close_set_cls_prompt
         self.invalid_correct_predictions = 0  # * random choice and correct coincidently
@@ -620,7 +633,7 @@ class OpenAICloseSetClsEvaluator(OpenAIOpenFreeFormClsEvaluator):
 
 
 class OpenAIObjectCaptioningEvaluator(OpenAIOpenFreeFormClsEvaluator):
-    def __init__(self, inputs, output_dir, output_file, model_type="gpt-4-0613", client=None):
+    def __init__(self, inputs, output_dir, output_file, model_type="qwen-flash", client=None):
         super().__init__(inputs, output_dir, output_file, model_type, client=client)
         self.gpt_prompt = LLM_object_captioning_prompt
 
@@ -842,7 +855,7 @@ class OpenAIObjectCaptioningEvaluator(OpenAIOpenFreeFormClsEvaluator):
 
 
 def start_evaluation(results, output_dir, output_file, eval_type="open-free-form-classification",
-                     model_type="qwen2-72b-instruct",
+                     model_type="qwen-flash",
                      parallel=True, num_workers=20):
     """
     Args:
@@ -879,7 +892,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--results_path", type=str, default="", help="Path to the results file.")
     parser.add_argument("--output_dir", type=str, default=None, help="Path to the output directory.")
-    parser.add_argument("--model_type", type=str, default="qwen2-72b-instruct",
+    parser.add_argument("--model_type", type=str, default="qwen-flash",
                         help="Type of the model in hugging face used to evaluate.")
     parser.add_argument("--parallel", default=True, action="store_true", help="Whether to use parallel evaluation.")
     parser.add_argument("--num_workers", type=int, default=15, help="Number of workers to use for parallel evaluation.")

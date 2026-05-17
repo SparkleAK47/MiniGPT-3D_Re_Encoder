@@ -331,6 +331,16 @@ class MiniGPTBase(BaseModel):
         stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(
             stops=[torch.tensor([i]).to(self.device) for i in stop_words_ids])])
 
+        # # 调试：打印第一条文本的 token 序列
+        # print("=== Debug: Input text ===")
+        # print(texts[0])
+        # print("=== Debug: Tokenized IDs ===")
+        # tokenized = self.llama_tokenizer(texts[0], return_tensors='pt').input_ids
+        # print(tokenized)
+        # print("=== Debug: Decoded back ===")
+        # print(self.llama_tokenizer.decode(tokenized[0]))
+        # print("===========================")
+
         pc_embeds, atts_pc = self.encode_pc(pc.to(self.device))
         PointCloud_lists = [[PointCloud_emb[None]] for PointCloud_emb in pc_embeds]
 

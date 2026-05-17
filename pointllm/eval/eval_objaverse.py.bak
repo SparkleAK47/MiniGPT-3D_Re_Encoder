@@ -54,9 +54,6 @@ def start_generation(model, dataloader, annos, prompt_index, output_dir, output_
         texts.append(qs)
         texts = texts * point_clouds.size()[0]
         texts = prepare_texts(texts, conv_temp)
-        # print("=== Debug: First sample prompt ===")
-        # print(texts[0])
-        # print("==================================")
 
         model.eval()
         with torch.inference_mode():
@@ -119,51 +116,6 @@ def main(args):
 
 
         model = init_model(args)
-        # # ===== 探测模型结构 =====
-        # print("探测模型属性中与 LLM 相关的部分...")
-        # # 打印模型类的名称
-        # print(f"模型类: {type(model).__name__}")
-        # # 列出所有属性（不包含私有方法和内置属性）
-        # for attr in dir(model):
-        #     if not attr.startswith('_'):
-        #         try:
-        #             val = getattr(model, attr)
-        #             if hasattr(val, '__class__'):
-        #                 cls_name = val.__class__.__name__
-        #                 # 如果属性名称或类名包含 'llm' 或 'language' 或 'phi'
-        #                 if 'llm' in attr.lower() or 'language' in attr.lower() or 'phi' in attr.lower() or 'phi' in cls_name.lower():
-        #                     print(f"  {attr} : {cls_name}")
-        #         except:
-        #             pass
-        # # ===== 探测结束 =====
-        # # ===== 通用权重验证 =====
-        # import torch
-        # from transformers import AutoModelForCausalLM
-
-        # print("正在加载官方 microsoft/phi-2 以作对比...")
-        # official_phi = AutoModelForCausalLM.from_pretrained("microsoft/phi-2", trust_remote_code=True)
-        # official_state = official_phi.state_dict()
-
-        # # 遍历加载模型的所有参数，寻找名称中包含 'embed_tokens.weight' 的参数
-        # found_embed = None
-        # for name, param in model.named_parameters():
-        #     if 'embed_tokens.weight' in name:
-        #         found_embed = param
-        #         print(f"在模型中找到词嵌入参数: {name}")
-        #         break
-
-        # if found_embed is not None:
-        #     loaded_embed = found_embed.data[0].cpu()
-        #     official_embed = official_state['model.embed_tokens.weight'][0].cpu()
-        #     cos_sim = torch.nn.functional.cosine_similarity(loaded_embed.float(), official_embed.float(), dim=0)
-        #     print(f"\n>>> 嵌入向量余弦相似度: {cos_sim.item():.6f} <<<\n")
-        #     if cos_sim < 0.9:
-        #         print("警告：LLM 权重似乎未被正确加载（随机初始化）！")
-        #     else:
-        #         print("LLM 权重加载正常。")
-        # else:
-        #     print("未找到词嵌入参数，请检查模型结构。")
-        # # ===== 验证结束 =====
         model=model.eval()
 
         conv_temp = CONV_VISION.copy()

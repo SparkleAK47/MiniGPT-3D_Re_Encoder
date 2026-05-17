@@ -98,7 +98,9 @@ class MiniGPT_3D(MiniGPTBase):
             QFormer_lora_module=QFormer_lora_module,
         )
         self.load_from_pretrained(
-            url_or_filename="./params_weight/TinyGPT_V_stage_3/TinyGPT-V_for_Stage3.pth")  # load q-former weights here
+            url_or_filename="/data/workspace/MiniGPT-3D/sfr-vision-language-research^LAVIS/blip2_pretrained_flant5xxl.pth"
+)  # load q-former weights here
+        # url_or_filename="./params_weight/TinyGPT_V_stage_3/TinyGPT-V_for_Stage3.pth" 
         print('Load Q-Former done')
 
         print('Create the Projector: llama_proj and llama_proj2')

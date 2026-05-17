@@ -152,7 +152,9 @@ class BaseModel(nn.Module):
 
         point_encoder = PointTransformer(point_bert_config.model, use_max_pool=use_max_pool)
 
-        point_encoder.load_checkpoint("./params_weight/pc_encoder/point_model.pth" )
+        # point_encoder.load_checkpoint("./params_weight/pc_encoder/point_model.pth" )
+        point_encoder.load_checkpoint("./params_weight/pc_encoder/point_model_hybrid.pth" )
+
 
         if precision == "fp16":
             #         model.to("cuda")
