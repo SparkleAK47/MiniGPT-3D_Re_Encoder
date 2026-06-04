@@ -51,6 +51,8 @@ class MiniGPT_3D(MiniGPTBase):
             QFormer_lora_module=["query", "key", "value"],
             pc_linear_layer=2,
             only_train_pc_linear=False,
+            train_pc_encoder=False,
+            pc_encoder_ckpt=None,
     ):
         super().__init__(
             llama_model=llama_model,
@@ -67,7 +69,7 @@ class MiniGPT_3D(MiniGPTBase):
         )
 
         print('Init pc encoder: pc_encoder')
-        self.pc_encoder = self.init_pc_encoder(pc_precision, freeze_pc)
+        self.pc_encoder = self.init_pc_encoder(pc_precision, freeze_pc, pc_encoder_ckpt=pc_encoder_ckpt)
 
         print('Create the MLP: point_2_Qformer_proj')
         if pc_linear_layer == 1:
@@ -156,11 +158,15 @@ class MiniGPT_3D(MiniGPTBase):
 
         ############### only Stage I ###
         self.only_train_pc_linear = only_train_pc_linear
+        self.train_pc_encoder = train_pc_encoder
         if self.only_train_pc_linear:
 
             # PC Encoder in Stage I of paper figure 3
-            for name, param in self.pc_encoder.named_parameters():
-                param.requires_grad = False
+            if not self.train_pc_encoder:
+                for name, param in self.pc_encoder.named_parameters():
+                    param.requires_grad = False
+            else:
+                logging.info("Stage I: pc_encoder is trainable (PCP-MAE unfrozen mode)")
 
             # MLP in Stage I of paper figure 3
             for name, param in self.point_2_Qformer_proj.named_parameters():
@@ -190,8 +196,11 @@ class MiniGPT_3D(MiniGPTBase):
         if self.only_train_MQE:
 
             # PC Encoder in Stage IV of paper figure 3
-            for name, param in self.pc_encoder.named_parameters():
-                param.requires_grad = False
+            if not self.train_pc_encoder:
+                for name, param in self.pc_encoder.named_parameters():
+                    param.requires_grad = False
+            else:
+                logging.info("Stage IV: pc_encoder is trainable (PCP-MAE unfrozen mode)")
 
             # MLP in Stage IV of paper figure 3
             for name, param in self.point_2_Qformer_proj.named_parameters():
@@ -510,6 +519,9 @@ class MiniGPT_3D(MiniGPTBase):
         pc_linear_layer = cfg.get("pc_linear_layer", 2)
 
         only_train_pc_linear = cfg.get("only_train_pc_linear", False)
+        train_pc_encoder = cfg.get("train_pc_encoder", False)
+
+        pc_encoder_ckpt = cfg.get("pc_encoder_ckpt", None)
 
         freeze_Qformer = cfg.get("freeze_Qformer", True)
 
@@ -538,6 +550,8 @@ class MiniGPT_3D(MiniGPTBase):
             QFormer_lora_module=QFormer_lora_module,
             pc_linear_layer=pc_linear_layer,
             only_train_pc_linear=only_train_pc_linear,
+            train_pc_encoder=train_pc_encoder,
+            pc_encoder_ckpt=pc_encoder_ckpt,
             freeze_Qformer=freeze_Qformer,
         )
 

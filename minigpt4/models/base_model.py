@@ -137,7 +137,7 @@ class BaseModel(nn.Module):
             return contextlib.nullcontext()
 
     @classmethod
-    def init_pc_encoder(cls,  precision, freeze):
+    def init_pc_encoder(cls,  precision, freeze, pc_encoder_ckpt=None):
         logging.info('Loading pc encoder')
 
         from .pointbert.point_encoder import PointTransformer
@@ -152,13 +152,18 @@ class BaseModel(nn.Module):
 
         point_encoder = PointTransformer(point_bert_config.model, use_max_pool=use_max_pool)
 
-        # point_encoder.load_checkpoint("./params_weight/pc_encoder/point_model.pth" )
-        point_encoder.load_checkpoint("./params_weight/pc_encoder/point_model_hybrid.pth" )
+        if pc_encoder_ckpt is None:
+            pc_encoder_ckpt = "./params_weight/pc_encoder/point_model_pcp_v2.pth"
+        point_encoder.load_checkpoint(pc_encoder_ckpt)
 
 
         if precision == "fp16":
-            #         model.to("cuda")
-            convert_weights_to_fp16(point_encoder)
+            if freeze:
+                # 冻结时转 FP16 可节省显存，不产生梯度
+                convert_weights_to_fp16(point_encoder)
+            else:
+                # 训练时保持 FP32：GradScaler 要求梯度为 FP32
+                logging.info('pc_encoder is trainable, keeping FP32 for GradScaler compatibility')
 
         logging.info(f"Using {point_encoder.point_dims} dim of points.")
 
