@@ -62,3 +62,5 @@ log_pcpmae_stage_2.txt
 log_pcpmae_stage_3.txt
 log_pcpmae_stage_4.txt
 evaluate/
+env_install_5090.sh
+environment_5090.yml

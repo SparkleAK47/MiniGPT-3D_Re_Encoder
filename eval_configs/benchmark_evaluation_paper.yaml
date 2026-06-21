@@ -1,7 +1,7 @@
 model:
   arch: minigpt_3d
   model_type: pretrain
-  max_txt_len: 500  
+  max_txt_len: 500
   end_sym: "###"
   prompt_template: 'Instruct: {} /n Output: '
   llama_model: "./params_weight/Phi_2"
@@ -9,9 +9,18 @@ model:
   # second_ckpt: "./params_weight/MiniGPT_3D_stage_4/MiniGPT_3D_stage_4.pth"
   # ckpt: '/data/workspace/MiniGPT-3D/output/test/stage_3/checkpoint_2.pth'
   # second_ckpt: "/data/workspace/MiniGPT-3D/output/test/stage_4/checkpoint_0.pth"
-  
-  ckpt: '/data/workspace/MiniGPT-3D/output/hybrid-with-objaverse_unfreeze/stage_3/checkpoint_2.pth'
-  second_ckpt: "/data/workspace/MiniGPT-3D/output/hybrid-with-objaverse_unfreeze/stage_4/checkpoint_0.pth"
+
+  ckpt: '/data/workspace/MiniGPT-3D/output/pointmae/stage_3/checkpoint_2.pth'
+  second_ckpt: "/data/workspace/MiniGPT-3D/output/pointmae/stage_4/checkpoint_0.pth"
+
+  # ---- pc_encoder 评估配置 ----
+  # 若所有训练 stage 均 freeze_pc: True（checkpoint 中不含 pc_encoder 权重），
+  # 则需要在此指定 pc_encoder 的预训练权重路径。
+  # 若 freeze_pc: False（checkpoint 已含 pc_encoder），则该字段可留空或被忽略——
+  # 因为 load_state_dict 会自动用 checkpoint 中的 pc_encoder 覆盖。
+  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_pointmae.pth"
+  # pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_pcp_v2.pth"
+  # pc_encoder_ckpt: "./params_weight/pc_encoder/point_model.pth"
   lora_r: 64
   lora_alpha: 16
   pc_linear_layer: 2

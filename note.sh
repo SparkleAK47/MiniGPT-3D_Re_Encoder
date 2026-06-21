@@ -1,3 +1,5 @@
+# 此文件只做参考，不可执行
+
 评估配置文件 eval_configs/benchmark_evaluation_paper.yaml 
 
 测试权重：
@@ -23,32 +25,32 @@ python UI_demo.py --cfg-path ./eval_configs/MiniGPT_3D_conv_UI_demo.yaml --gpu-i
 
 # Prompt 0
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_objaverse.py \
-    --out_path ./evaluate/hybrid-with-objaverse_unfreeze \
+    --out_path ./evaluate/pointmae \
     --task_type classification \
     --cfg-path ./eval_configs/benchmark_evaluation_paper.yaml \
     --prompt_index 0
 
 # Prompt 1
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_objaverse.py \
-    --out_path ./evaluate/hybrid-with-objaverse_unfreeze \
+    --out_path ./evaluate/pointmae \
     --task_type classification \
     --cfg-path ./eval_configs/benchmark_evaluation_paper.yaml \
     --prompt_index 1
 
 # Prompt 0
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_modelnet_cls.py \
-    --out_path ./evaluate/hybrid-with-objaverse_unfreeze \
+    --out_path ./evaluate/pointmae \
     --cfg-path ./eval_configs/benchmark_evaluation_paper.yaml \
     --prompt_index 0
 
 # Prompt 1
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_modelnet_cls.py \
-    --out_path ./evaluate/hybrid-with-objaverse_unfreeze \
+    --out_path ./evaluate/pointmae \
     --cfg-path ./eval_configs/benchmark_evaluation_paper.yaml \
     --prompt_index 1
 
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_objaverse.py \
-    --out_path ./evaluate/hybrid-with-objaverse_unfreeze \
+    --out_path ./evaluate/pointmae \
     --task_type captioning \
     --cfg-path ./eval_configs/benchmark_evaluation_paper.yaml \
     --prompt_index 2
@@ -56,13 +58,13 @@ CUDA_VISIBLE_DEVICES=0 python pointllm/eval/eval_objaverse.py \
 
 
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/traditional_evaluator.py \
-    --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_captioning_prompt2.json
+    --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_captioning_prompt2.json
     
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/traditional_evaluator.py \
-    --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt1.json
+    --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt1.json
     
 CUDA_VISIBLE_DEVICES=0 python pointllm/eval/traditional_evaluator.py \
-    --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt0.json
+    --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt0.json
     
     
 
@@ -78,32 +80,32 @@ CUDA_VISIBLE_DEVICES=0 python pointllm/eval/traditional_evaluator.py \
 export PYTHONPATH=$PWD
 
 python ./pointllm/eval/evaluator_opensource_llm_QwenAPI.py  \
-        --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt0.json  \
+        --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt0.json  \
         --eval_type open-free-form-classification  \
         --model_type qwen-flash \
         --parallel --num_workers 4
 
 
 python ./pointllm/eval/evaluator_opensource_llm_QwenAPI.py  \
-        --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt1.json  \
+        --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_classification_prompt1.json  \
         --eval_type open-free-form-classification  \
         --model_type qwen-flash \
         --parallel --num_workers 4
 
 python ./pointllm/eval/evaluator_opensource_llm_QwenAPI.py  \
-    --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/ModelNet_classification_prompt0.json  \
+    --results_path ./evaluate/pointmae/evaluation/ModelNet_classification_prompt0.json  \
     --eval_type modelnet-close-set-classification  \
     --model_type qwen-flash \
     --parallel --num_workers 4
 
 python ./pointllm/eval/evaluator_opensource_llm_QwenAPI.py  \
-    --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/ModelNet_classification_prompt1.json  \
+    --results_path ./evaluate/pointmae/evaluation/ModelNet_classification_prompt1.json  \
     --eval_type modelnet-close-set-classification  \
     --model_type qwen-flash \
     --parallel --num_workers 4
 
 python ./pointllm/eval/evaluator_opensource_llm_QwenAPI.py  \
-        --results_path ./evaluate/hybrid-with-objaverse_unfreeze/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_captioning_prompt2.json  \
+        --results_path ./evaluate/pointmae/evaluation/PointLLM_brief_description_val_200_GT_Objaverse_captioning_prompt2.json  \
         --eval_type object-captioning  \
         --model_type qwen-flash \
         --parallel --num_workers 4

@@ -154,6 +154,13 @@ class BaseModel(nn.Module):
 
         if pc_encoder_ckpt is None:
             pc_encoder_ckpt = "./params_weight/pc_encoder/point_model_pcp_v2.pth"
+            logging.warning(
+                "[pc_encoder] pc_encoder_ckpt not specified in config, "
+                "falling back to hardcoded default: %s. "
+                "Set 'pc_encoder_ckpt' in your eval/train YAML to suppress this warning.",
+                pc_encoder_ckpt
+            )
+        logging.info("[pc_encoder] Loading point encoder from: %s", pc_encoder_ckpt)
         point_encoder.load_checkpoint(pc_encoder_ckpt)
 
 

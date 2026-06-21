@@ -556,10 +556,15 @@ class MiniGPT_3D(MiniGPTBase):
         )
 
         ckpt_path = cfg.get("ckpt", "")
+        pc_encoder_in_ckpt = False  # track whether full checkpoints carry pc_encoder weights
         if ckpt_path:
             print("Load MiniGPT-3D first Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
+            if any('pc_encoder' in k for k in msg.missing_keys):
+                print("[pc_encoder] first ckpt did NOT contain pc_encoder weights (frozen during training)")
+            else:
+                pc_encoder_in_ckpt = True
         else:
             print("No load first ckpt!!!")
 
@@ -568,7 +573,16 @@ class MiniGPT_3D(MiniGPTBase):
             print("Load MiniGPT-3D second_ckpt Checkpoint: {}".format(stage_3_ckpt))
             ckpt = torch.load(stage_3_ckpt, map_location="cpu")
             msg = model.load_state_dict(ckpt['model'], strict=False)
+            if any('pc_encoder' in k for k in msg.missing_keys):
+                print("[pc_encoder] second_ckpt did NOT contain pc_encoder weights (frozen during training)")
+            else:
+                pc_encoder_in_ckpt = True
         else:
             print("No load second_ckpt!!!")
+
+        if pc_encoder_in_ckpt:
+            print("[pc_encoder] pc_encoder weights came from full model checkpoint (freeze_pc=False during training)")
+        else:
+            print("[pc_encoder] pc_encoder weights came from pc_encoder_ckpt (freeze_pc=True during all stages)")
 
         return model
