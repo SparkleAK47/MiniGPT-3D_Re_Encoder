@@ -17,12 +17,11 @@ from transformers import AutoTokenizer
 from peft import (
     LoraConfig,
     get_peft_model,
-    prepare_model_for_int8_training,
 )
 
 from minigpt4.common.dist_utils import download_cached_file
 from minigpt4.common.utils import get_abs_path, is_url, cfg_from_yaml_file
-from transformers import PhiForCausalLM
+from minigpt4.models.modeling_phi_local import PhiForCausalLM
 
 
 class BaseModel(nn.Module):
@@ -189,7 +188,7 @@ class BaseModel(nn.Module):
         return point_encoder
 
     def init_llm(cls, llama_model_path, low_resource=False, low_res_device=0, lora_r=0,
-                 lora_target_modules=['Wqkv', 'out_proj'], **lora_kargs):
+                 lora_target_modules=['query_key_value', 'dense'], **lora_kargs):
         logging.info('Loading LLAMA')
         llama_tokenizer = AutoTokenizer.from_pretrained(llama_model_path, use_fast=False)
         llama_tokenizer.pad_token = llama_tokenizer.eos_token

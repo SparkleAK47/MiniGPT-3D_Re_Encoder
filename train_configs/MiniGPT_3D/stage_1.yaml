@@ -11,12 +11,12 @@ model:
   lora_alpha: 16
   only_train_pc_linear: True
   train_pc_encoder: True               # PCP-MAE unfrozen: pc_encoder participates in Stage I training
-  freeze_pc: False                    # Allow pc_encoder parameter updates
+  freeze_pc: False                  # Allow pc_encoder parameter updates
   pc_linear_layer: 2
   use_MQE: False  #  False: not use  query expert
   QFormer_lora_r: 0   # 0 : not use QFormer lora
   # pc_encoder_ckpt: "./params_weight/pc_encoder/point_model.pth"           # 原始 Point-BERT (baseline)
-  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_pointmae.pth"      # PCP-MAE 预训练
+  pc_encoder_ckpt: "./params_weight/pc_encoder/mask-pcpmae.pth"      # PCP-MAE 预训练
 
 
 datasets:

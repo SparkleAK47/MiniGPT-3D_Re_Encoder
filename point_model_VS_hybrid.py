@@ -9,6 +9,12 @@ Custom paths:
   python point_model_VS_hybrid.py \
     --ckpt-a ./params_weight/pc_encoder/point_model.pth \
     --ckpt-b ./params_weight/pc_encoder/point_model_pcpmae.pth
+
+python point_model_VS_hybrid.py \
+  --ckpt-a ./params_weight/pc_encoder/point_model.pth \
+  --ckpt-b ./params_weight/pc_encoder/point_model_hybrid.pth \
+  --data-path ./data/modelnet40_data/modelnet40_test_8192pts_fps.dat \
+  --max-samples 2468
 """
 import os
 import sys

@@ -39,6 +39,7 @@ class PhiConfig(PretrainedConfig):
         initializer_range: float = 0.02,
         tie_word_embeddings: bool = False,
         pad_vocab_size_multiple: int = 64,
+        pad_token_id: int = None,
         **kwargs
     ) -> None:
         self.vocab_size = int(math.ceil(vocab_size / pad_vocab_size_multiple) * pad_vocab_size_multiple)
@@ -58,5 +59,20 @@ class PhiConfig(PretrainedConfig):
         self.resid_pdrop = resid_pdrop
         self.layer_norm_epsilon = layer_norm_epsilon
         self.initializer_range = initializer_range
+        self.pad_token_id = pad_token_id
+
+        # --- HuggingFace 新版属性别名 (兼容 modeling_phi_local.py) ---
+        self.hidden_size = n_embd
+        self.intermediate_size = n_inner if n_inner is not None else (4 * n_embd)
+        self.num_attention_heads = n_head
+        self.num_hidden_layers = n_layer
+        self.max_position_embeddings = n_positions
+        self.layer_norm_eps = layer_norm_epsilon
+        self.attention_dropout = attn_pdrop
+        self.hidden_act = activation_function
+        self.rope_theta = 10000.0
+        self.partial_rotary_factor = 0.5
+        self.rope_scaling = None
+        self._attn_implementation = "eager"
 
         super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
