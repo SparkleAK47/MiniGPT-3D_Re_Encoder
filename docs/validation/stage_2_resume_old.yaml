@@ -1,0 +1,66 @@
+model:
+  arch: minigpt_3d
+  model_type: pretrain
+  max_txt_len: 1024
+  end_sym: "###"
+  llama_model: "./params_weight/Phi_2"
+  ckpt: './params_weight/TinyGPT_V_stage_3/TinyGPT-V_for_Stage3.pth'
+  second_ckpt: './output/pcpmae/stage_1/checkpoint_0.pth'
+  use_grad_checkpoint: True
+  chat_template: True
+  lora_r: 64
+  lora_alpha: 16
+  only_train_pc_linear: False
+  train_pc_encoder: True
+  freeze_pc: False
+  pc_linear_layer: 2
+  use_MQE: False
+  query_expert_router_type: 'Sparse Router'
+  query_expert_num: 8
+  query_expert_top_k: 2
+  QFormer_lora_r: 8
+  QFormer_lora_alpha: 16
+  train_QFormer_norm: True
+  QFormer_lora_module: ["query", "key", "value"]
+  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model.pth"
+
+
+datasets:
+  Objaverse_brief:
+    batch_size: 2
+    text_processor:
+      train:
+        name: "blip_caption"
+
+
+run:
+  task: image_text_pretrain
+  lr_sched: "linear_warmup_cosine_lr"
+
+  init_lr: 3e-5
+  min_lr: 1e-5
+  warmup_lr: 1e-6
+
+  weight_decay: 0.05
+  num_workers: 2
+
+  max_epoch: 2
+  warmup_steps: 20
+  iters_per_epoch: 2
+
+  seed: 42
+  output_dir: "./output/smoke_resume_old"
+
+  amp: True
+  resume_ckpt_path: "./output/pcpmae/stage_2/checkpoint_0.pth"
+
+  evaluate: False
+  train_splits: ["train"]
+
+  device: "cuda"
+  world_size: 1
+  dist_url: "env://"
+  distributed: False
+
+  wandb_log: False
+  job_name: minigpt3d_smoke_resume_old

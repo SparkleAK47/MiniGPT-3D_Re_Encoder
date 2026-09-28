@@ -98,7 +98,14 @@ def main():
     print("")
     for name, param in model.named_parameters():
         if param.requires_grad:
-            print(f"Parameter {name} will be updated.")
+            print(f"Parameter {name} will be updated. dtype={param.dtype}")
+
+    # AMP/GradScaler guard visibility: torch.cuda.amp.GradScaler cannot unscale
+    # fp16 parameter gradients, so this count must be 0 whenever amp=True.
+    _n_fp16_trainable = sum(
+        1 for p in model.parameters() if p.requires_grad and p.dtype == torch.float16
+    )
+    print(f"Trainable fp16 params: {_n_fp16_trainable} (must be 0 for AMP/GradScaler)")
 
     print()
     num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

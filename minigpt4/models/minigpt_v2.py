@@ -3,7 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from minigpt4.common.registry import registry
-from minigpt4.models.base_model import disabled_train
+from minigpt4.models.base_model import (
+    disabled_train,
+    remap_peft_base_layer_keys,
+)
 from minigpt4.models.minigpt_base import MiniGPTBase
 from minigpt4.models.Qformer import BertConfig, BertLMHeadModel
 import logging
@@ -100,7 +103,15 @@ class MiniGPT_3D(MiniGPTBase):
             QFormer_lora_module=QFormer_lora_module,
         )
         self.load_from_pretrained(
-            url_or_filename="/data/workspace/MiniGPT-3D/sfr-vision-language-research^LAVIS/blip2_pretrained_flant5xxl.pth"
+            url_or_filename="/data/workspace/MiniGPT-3D/sfr-vision-language-research^LAVIS/blip2_pretrained_flant5xxl.pth",
+            # The Q-Former LoRA is injected *inside* ``init_Qformer`` above, i.e. before
+            # this load; with peft >= 0.7 the wrapped query/key/value modules are then
+            # named ``...base_layer.{weight,bias}``, so without this remap every plain
+            # BLIP-2 key would be silently dropped and the Q-Former self-/cross-attention
+            # (frozen for stage >= 2 and never written into a stage checkpoint) would keep
+            # its random initialization, resetting the point-cloud pathway at every
+            # stage-2 start (loss jumps back to ~7.5 instead of continuing at ~2.2).
+            key_remap=remap_peft_base_layer_keys,
 )  # load q-former weights here
         # url_or_filename="./params_weight/TinyGPT_V_stage_3/TinyGPT-V_for_Stage3.pth" 
         print('Load Q-Former done')
@@ -227,6 +238,11 @@ class MiniGPT_3D(MiniGPTBase):
 
             print("Stage  IV: only train Mixture of Query Experts")
         ############### only Stage IV ###
+
+        # Must run *after* all the requires_grad decisions above so that exactly the
+        # parameters entering the optimizer are cast.  Covers LLM LoRA + QFormer LoRA
+        # + any other trainable module, and is a no-op when nothing is fp16.
+        self.force_trainable_fp32(tag="MiniGPT_3D")
 
     @classmethod
     def init_Qformer(cls, num_query_token, vision_width, freeze, QFormer_lora_r,
@@ -560,7 +576,9 @@ class MiniGPT_3D(MiniGPTBase):
         if ckpt_path:
             print("Load MiniGPT-3D first Checkpoint: {}".format(ckpt_path))
             ckpt = torch.load(ckpt_path, map_location="cpu")
-            msg = model.load_state_dict(ckpt['model'], strict=False)
+            # legacy checkpoints use the un-wrapped names; map them onto peft base_layer
+            msg = model.load_state_dict(
+                remap_peft_base_layer_keys(ckpt['model'], model.state_dict()), strict=False)
             if any('pc_encoder' in k for k in msg.missing_keys):
                 print("[pc_encoder] first ckpt did NOT contain pc_encoder weights (frozen during training)")
             else:
@@ -572,7 +590,9 @@ class MiniGPT_3D(MiniGPTBase):
         if stage_3_ckpt:
             print("Load MiniGPT-3D second_ckpt Checkpoint: {}".format(stage_3_ckpt))
             ckpt = torch.load(stage_3_ckpt, map_location="cpu")
-            msg = model.load_state_dict(ckpt['model'], strict=False)
+            # legacy checkpoints use the un-wrapped names; map them onto peft base_layer
+            msg = model.load_state_dict(
+                remap_peft_base_layer_keys(ckpt['model'], model.state_dict()), strict=False)
             if any('pc_encoder' in k for k in msg.missing_keys):
                 print("[pc_encoder] second_ckpt did NOT contain pc_encoder weights (frozen during training)")
             else:

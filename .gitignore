@@ -63,3 +63,7 @@ log_pcpmae_stage_3.txt
 log_pcpmae_stage_4.txt
 evaluate/
 run_all.sh
+log_lu_stage_1.txt
+log_lu_stage_2.txt
+log_lu_stage_3.txt
+log_lu_stage_4.txt

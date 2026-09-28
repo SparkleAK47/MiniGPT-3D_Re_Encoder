@@ -6,6 +6,7 @@
 """
 
 import os
+import re
 import logging
 import contextlib
 
@@ -134,6 +135,29 @@ class BaseModel(nn.Module):
             return torch.cuda.amp.autocast(dtype=dtype)
         else:
             return contextlib.nullcontext()
+
+    def force_trainable_fp32(self, tag=""):
+        """AMP / GradScaler compatibility: make every *trainable* parameter fp32.
+
+        peft >= 0.7 creates newly injected LoRA layers in the base-model dtype
+        (fp16 for Phi-2 here), and torch.cuda.amp.GradScaler refuses to unscale
+        fp16 parameter gradients -> "Attempting to unscale FP16 gradients".
+        The original environment (peft 0.6 / RTX 3090) ended up with fp32
+        adapters, so this restores that regime.  Frozen fp16 weights are left
+        untouched, so the memory footprint of the frozen LLM is unchanged.
+        """
+        converted = []
+        for name, param in self.named_parameters():
+            if param.requires_grad and param.dtype == torch.float16:
+                param.data = param.data.float()
+                converted.append(name)
+        logging.info(
+            "[amp] cast %d trainable fp16 params to fp32%s%s",
+            len(converted),
+            (" " + tag) if tag else "",
+            (" | examples: " + ", ".join(converted[:3])) if converted else "",
+        )
+        return converted
 
     @classmethod
     def init_pc_encoder(cls,  precision, freeze, pc_encoder_ckpt=None):
@@ -284,7 +308,7 @@ class BaseModel(nn.Module):
         logging.info('Loading LLAMA Done')
         return llama_model, llama_tokenizer
 
-    def load_from_pretrained(self, url_or_filename):
+    def load_from_pretrained(self, url_or_filename, key_remap=None):
         if is_url(url_or_filename):
             cached_file = download_cached_file(
                 url_or_filename, check_hash=False, progress=True
@@ -297,9 +321,18 @@ class BaseModel(nn.Module):
 
         state_dict = checkpoint["model"]
 
+        # ``key_remap`` adapts the checkpoint keys to the model's keys, e.g. to reach
+        # LoRA-wrapped modules whose names peft >= 0.7 changed to ``*.base_layer.*``
+        # (see ``remap_peft_base_layer_keys``). Without it such weights are silently
+        # dropped by ``strict=False`` below.
+        if key_remap is not None:
+            state_dict = key_remap(state_dict, self.state_dict())
+
         msg = self.load_state_dict(state_dict, strict=False)
 
-        # logging.info("Missing keys {}".format(msg.missing_keys))
+        # ``strict=False`` stays silent about unmatched keys; make the Q-Former
+        # weights (which have no other source than this checkpoint) visible.
+        warn_missing_qformer_keys(msg, url_or_filename)
         logging.info("load checkpoint from %s" % url_or_filename)
 
         return msg
@@ -309,6 +342,80 @@ def disabled_train(self, mode=True):
     """Overwrite model.train with this function to make sure train/eval mode
     does not change anymore."""
     return self
+
+
+def remap_peft_base_layer_keys(state_dict, model_state_dict):
+    """Remap checkpoint keys of LoRA-wrapped sub-modules onto peft's ``base_layer``.
+
+    peft >= 0.7 keeps the layer a LoRA adapter is injected into as a ``base_layer``
+    sub-module, so the parameter names of every LoRA target module become
+    ``...<module>.base_layer.{weight,bias}``; peft <= 0.6 used an ``nn.Linear``
+    subclass and kept the plain ``...<module>.{weight,bias}`` names.
+
+    Checkpoints that provide pre-trained weights for the *unwrapped* naming (e.g. the
+    BLIP-2 Q-Former, which is loaded into an already LoRA-injected Q-Former, or legacy
+    full-model checkpoints) therefore no longer match and are silently dropped by
+    ``load_state_dict(..., strict=False)`` - the affected modules would keep their
+    random initialization. This mapping inserts ``.base_layer`` only when the target
+    model actually exposes the wrapped key, so it is a no-op for un-wrapped modules
+    (and for peft <= 0.6).
+
+    Args:
+        state_dict (dict): state dict of the checkpoint.
+        model_state_dict (dict): ``model.state_dict()`` the checkpoint is loaded into.
+
+    Returns:
+        dict: state dict whose keys match the (possibly wrapped) model.
+    """
+    model_keys = set(model_state_dict.keys())
+    remapped_state_dict = {}
+    renamed = []
+    for key, value in state_dict.items():
+        if key in model_keys:
+            remapped_state_dict[key] = value
+            continue
+        base_layer_key = re.sub(r"\.(weight|bias)$", r".base_layer.\1", key)
+        if base_layer_key != key and base_layer_key in model_keys:
+            remapped_state_dict[base_layer_key] = value
+            renamed.append((key, base_layer_key))
+        else:
+            remapped_state_dict[key] = value
+    if renamed:
+        logging.info(
+            "[load] remapped %d LoRA-wrapped key(s) onto peft base_layer, e.g. %s -> %s",
+            len(renamed), renamed[0][0], renamed[0][1],
+        )
+    return remapped_state_dict
+
+
+def warn_missing_qformer_keys(msg, source):
+    """Warn about Q-Former weights silently skipped by ``load_state_dict(strict=False)``.
+
+    The Q-Former (BLIP-2 pre-trained, frozen for stage >= 2 and hence never written
+    into the stage checkpoints) only ever receives its *base* weights from
+    ``blip2_pretrained_flant5xxl.pth``. Any key-naming mismatch would reset it to its
+    random initialization without a visible error, so report it loudly instead.
+    peft adapter parameters (``*.lora_*``) are excluded: they have no counterpart in a
+    base checkpoint and are initialized by peft itself.
+
+    Args:
+        msg: return value of ``nn.Module.load_state_dict`` (uses ``missing_keys``).
+        source (str): path/url of the checkpoint that was just loaded.
+
+    Returns:
+        list: the missing Q-Former keys (empty if everything matched).
+    """
+    missing_qformer = [
+        k for k in msg.missing_keys
+        if k.startswith("Qformer.") and ".lora_" not in k
+    ]
+    if missing_qformer:
+        logging.warning(
+            "[load] %d Q-Former key(s) MISSING while loading %s -> the Q-Former keeps "
+            "its RANDOM initialization, e.g. %s",
+            len(missing_qformer), source, missing_qformer[:3],
+        )
+    return missing_qformer
 
 
 class LayerNorm(nn.LayerNorm):
