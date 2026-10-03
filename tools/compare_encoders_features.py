@@ -3,16 +3,16 @@
 Compare two MiniGPT-3D PointTransformer checkpoints on cls / patch features.
 
 Zero-arg run (from MiniGPT-3D repo root):
-  python point_model_VS_hybrid.py
+  python tools/compare_encoders_features.py
 
 Custom paths:
-  python point_model_VS_hybrid.py \
+  python tools/compare_encoders_features.py \
     --ckpt-a ./params_weight/pc_encoder/point_model.pth \
-    --ckpt-b ./params_weight/pc_encoder/point_model_pcpmae.pth
+    --ckpt-b ./params_weight/pc_encoder/point_model_V1+random-cls.pth
 
-python point_model_VS_hybrid.py \
+python tools/compare_encoders_features.py \
   --ckpt-a ./params_weight/pc_encoder/point_model.pth \
-  --ckpt-b ./params_weight/pc_encoder/point_model_hybrid.pth \
+  --ckpt-b ./params_weight/pc_encoder/point_model_v2.pth \
   --data-path ./data/modelnet40_data/modelnet40_test_8192pts_fps.dat \
   --max-samples 2468
 """
@@ -30,7 +30,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+# 脚本位于 tools/ 子目录，MiniGPT-3D 仓库根目录是其上一级
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from minigpt4.common.utils import cfg_from_yaml_file
@@ -234,7 +235,7 @@ def build_arg_parser():
         default=None,
         help=(
             "Candidate checkpoint (default: first existing among "
-            "point_model_hybrid.pth / point_model_pcpmae.pth / pcpmae_ShapeNet.pth)"
+            "point_model_V1+random-cls.pth / point_model_v2.pth / point_model.pth)"
         ),
     )
     parser.add_argument(
@@ -265,9 +266,9 @@ def resolve_args(args):
     args.ckpt_b = args.ckpt_b or resolve_default_ckpt(
         "ckpt-b",
         [
-            "params_weight/pc_encoder/point_model_hybrid.pth",
-            "params_weight/pc_encoder/point_model_pcpmae.pth",
-            "params_weight/pc_encoder/pcpmae_ShapeNet.pth",
+            "params_weight/pc_encoder/point_model_V1+random-cls.pth",
+            "params_weight/pc_encoder/point_model_v2.pth",
+            "params_weight/pc_encoder/point_model.pth",
         ],
     )
     if args.data_type == "modelnet":

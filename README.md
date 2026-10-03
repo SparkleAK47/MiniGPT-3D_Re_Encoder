@@ -1,6 +1,6 @@
 # MiniGPT-3D — 复现与点云编码器替代研究
 
-本项目基于 [MiniGPT-3D](https://github.com/TangYuan96/MiniGPT-3D) 官方实现，在成功复现全部四阶段训练流程后，进行了**低成本自监督点云编码器替代 ULIP-2 预训练 Point-BERT** 的系统研究。核心候选方案为 **PCP-MAE** 及其变体（V1 / V2 / Point-MAE），辅以 ShapeNet55-34 对照实验与随机权重消融。
+本项目基于 [MiniGPT-3D](https://github.com/TangYuan96/MiniGPT-3D) 官方实现，在成功复现全部四阶段训练流程后，进行了**低成本自监督点云编码器替代 ULIP-2 预训练 Point-BERT** 的系统研究。核心候选方案为 **PCP-MAE** 及其变体（V1-random / V2 / Point-MAE×2），辅以 ShapeNet55-34 对照实验与随机权重消融。
 
 ---
 
@@ -26,66 +26,77 @@
 
 ```
 /data/workspace/
-├── PCP-MAE/                    # ShapeNet55-34 预训练分支（MaskTransformer）
-│   ├── cfgs/pretrain/base.yaml           # ShapeNet55-34 预训练配置
+├── PCP-MAE_with_ShapeNet/        # ShapeNet55-34 预训练分支（MaskTransformer）
+│   ├── cfgs/pretrain/[ShapeNet55-34]PCP‑MAE+MaskTransformer.yaml
 │   ├── models/pointbert_mg/              # MiniGPT-3D 兼容的 PointTransformer 实现
-│   ├── ckpt_extract.py                   # 通用权重提取脚本
+│   ├── ckpt_extract.py                   # 通用权重提取脚本（自动补 cls）
 │   └── README.md
 │
-├── PCP-MAE_with_Objaverse/     # Objaverse 660K 预训练分支（V1/V2/Point-MAE）
+├── PCP-MAE_with_Objaverse/       # Objaverse 660K 预训练分支（V1/V2/Point-MAE×2）
 │   ├── cfgs/pretrain/
-│   │   ├── base.yaml                     # V1 配置 (MaskTransformer)
-│   │   ├── base_minigpt_encoder.yaml     # V2 配置 (PointTransformer)
-│   │   └── ablation_point_mae.yaml       # Point-MAE 消融配置
-│   ├── models/PCP_MAE.py                 # 模型定义（含 PointTransformerMAEEncoder）
-│   ├── models/pointbert_mg/              # 从 MiniGPT-3D 复制的 PointTransformer 实现
-│   ├── ckpt_extract.py                   # 通用权重提取脚本（V2/Point-MAE 适用）
-│   ├── tools/export_minigpt_encoder.py   # V2 专用导出脚本
-│   ├── ckpt-extract_for_pcpmae-pretrain.py  # V1 手动提取脚本
+│   │   ├── [V1]PCP‑MAE+MaskTransformer.yaml   # V1（MaskTransformer + PCP-MAE）
+│   │   ├── [V2]PCP‑MAE+PointTransformer.yaml  # V2（PointTransformer + PCP-MAE）
+│   │   ├── Point‑MAE+PointTransformer.yaml    # Point-MAE 消融（PointTransformer，ita=0）
+│   │   └── Point‑MAE+MaskTransformer.yaml     # Point-MAE 消融（MaskTransformer，ita=0）
+│   ├── models/PCP_MAE.py                   # 模型定义（含 PointTransformerMAEEncoder + MaskTransformer）
+│   ├── ckpt_extract.py                     # 通用权重提取脚本（自动补 cls）
 │   └── README.md
 │
-└── MiniGPT-3D/                 # 下游训练与评测中心（本仓库）
-    ├── params_weight/pc_encoder/         # 所有编码器权重存放处
-    ├── train_configs/MiniGPT_3D/         # 四阶段训练配置（stage_1~5.yaml）
-    ├── eval_configs/                     # 评测配置
-    ├── pointllm/eval/                    # 评测脚本
-    ├── minigpt4/models/pointbert/        # 下游使用的 PointTransformer 定义
-    ├── fix_pcpmae_shapenet.py            # ShapeNet 权重修复（3ch→6ch + 补 cls）
-    ├── hybrid.py                         # V1 hybrid 合并（补 cls）
-    ├── random_weight.sh                  # 随机权重生成
-    ├── point_model_VS_hybrid.py          # 编码器特征诊断对比脚本
-    ├── check_weights.py                  # 检查 Phi-2 嵌入一致性
-    └── README.md                         # 本文件
+└── MiniGPT-3D/                   # 下游训练与评测中心（本仓库）
+    ├── params_weight/pc_encoder/           # 所有编码器权重存放处（当前权重 + old/ 归档）
+    ├── train_configs/MiniGPT_3D/           # 四阶段训练配置（stage_1~4.yaml）
+    ├── eval_configs/                       # 评测配置
+    ├── pointllm/eval/                      # 评测脚本
+    ├── minigpt4/models/pointbert/          # 下游使用的 PointTransformer 定义
+    ├── tools/                              # 工具脚本（权重导出/修复/诊断，见 §9）
+    │   ├── export_primitive_v1.py          # primitive-V1（无 cls）导出
+    │   ├── fix_shapenet_weights.py         # ShapeNet 权重修复（3ch→6ch + 补 cls）
+    │   ├── merge_cls_from_baseline.py      # [已废弃] V1 hybrid 合并（补 cls）
+    │   ├── compare_encoders_features.py    # 编码器特征诊断对比
+    │   └── check_phi2_embedding.py         # 检查 Phi-2 嵌入一致性
+    ├── random_weight.sh                    # 随机权重生成
+    └── README.md                           # 本文件
 ```
 
 ---
 
 ## 2. 编码器变体一览
 
-| 代号 | 权重文件 | 预训练方式 | 预训练数据 | 架构 | cls 来源 |
-|------|----------|------------|------------|------|----------|
-| **Baseline** | `point_model.pth` | ULIP-2 / Point-BERT（官方） | Objaverse | PointTransformer (self-attn) | 原生 |
-| **V1** | `point_model_pcpmae.pth` | PCP-MAE + MaskTransformer | Objaverse 660K | MaskTransformer (cross-attn) | **无 cls** |
-| **V1 hybrid** | `point_model_hybrid.pth` | V1 骨干 + Baseline cls | Objaverse 660K | MaskTransformer | 从 Baseline 拷贝 |
-| **V2** | `point_model_pcp_v2.pth` | PCP-MAE + PointTransformer | Objaverse 660K | PointTransformer (self-attn) | 预训练原生 |
-| **Point-MAE** | `point_model_pointmae.pth` | 纯 Point-MAE（ita=0） | Objaverse 660K | PointTransformer (self-attn) | 预训练原生 |
-| **ShapeNet55-34** | `pcpmae_ShapeNet_fixed.pth` | PCP-MAE + MaskTransformer | ShapeNet55-34 | MaskTransformer (cross-attn) | 随机初始化（修复补充） |
-| **Random** | `point_model_random.pth` | 随机初始化（无预训练） | — | PointTransformer (self-attn) | 随机初始化 |
+| 代号 | 权重文件 | 预训练方式 | 预训练数据 | 架构 | cls 来源 | dtype |
+|------|----------|------------|------------|------|----------|-------|
+| **Baseline** | `point_model.pth` | ULIP-2 / Point-BERT（官方） | Objaverse | PointTransformer (self-attn) | 原生 | **float16** |
+| **V1-random** | `point_model_V1+random-cls.pth` | PCP-MAE + MaskTransformer | Objaverse 660K | MaskTransformer (cross-attn) | 随机初始化（自动补） | float32 |
+| **V2** | `point_model_v2.pth` | PCP-MAE + PointTransformer | Objaverse 660K | PointTransformer (self-attn) | 预训练原生 | float32 |
+| **Point-MAE** | `old/PointMAE+PointTransformer.pth` | 纯 Point-MAE（ita=0） | Objaverse 660K | PointTransformer (self-attn) | 预训练原生 | float32 |
+| **Point-MAE+MaskTransformer** | `old/PointMAE+MaskTransformer+cls.pth` | 纯 Point-MAE（ita=0）+ MaskTransformer | Objaverse 660K | MaskTransformer (cross-attn) | 随机初始化（自动补） | float32 |
+| **ShapeNet55-34** | `old/ShapeNet55-34_6ch+cls.pth` | PCP-MAE + MaskTransformer | ShapeNet55-34 | MaskTransformer (cross-attn) | 随机初始化（修复补充） | float32 |
+| **Random** | `point_model_random.pth` | 随机初始化（无预训练） | — | PointTransformer (self-attn) | 随机初始化 | float32 |
+
+> **dtype 说明**：只有 Baseline `point_model.pth`（官方 ULIP-2）以 **float16** 存储（158 个 fp16 + 2 个 int64 tensor）；其余编码器权重均为 **float32**。
+
+### 已废弃 / 归档变体
+
+| 代号 | 权重文件（`old/`） | 废弃原因 |
+|------|--------------------|----------|
+| V1（原始，无 cls） | `PCPMAE+MaskTransformer.pth` | 被 **V1-random** 取代（cls 补充方式统一为随机初始化） |
+| V1 hybrid | `PCPMAE+MaskTransformer_hybrid-cls.pth` | 从 Baseline 拷贝 cls，与「随机初始化 cls」混淆变量，已弃用 |
+| V2 旧导出名 | `PCPMAE+PointTransformer_old-name.pth` | 与 V2 现行导出 `point_model_v2.pth` 重复 |
+| Point-MAE+MaskTransformer（无 cls 旧导出） | `PointMAE+MaskTransformer.pth` | 统一导出时已自动补 cls，新名 `PointMAE+MaskTransformer+cls.pth` |
 
 ### 架构差异说明
 
-- **MaskTransformer (V1 / ShapeNet55-34)**：使用 cross-attention（visible + mask 双分支），预训练时无 cls token。与 MiniGPT-3D 下游推理使用的标准 PointTransformer（self-attention + cls token）实现不同，因此需要额外步骤补充 cls 参数。
-- **PointTransformer (V2 / Point-MAE / Random)**：预训练直接采用与 MiniGPT-3D 完全一致的 PointTransformer 结构（self-attention + cls token），权重可无缝导出，无需额外合并。
+- **MaskTransformer（V1-random / Point-MAE+MaskTransformer / ShapeNet55-34）**：使用 cross-attention（visible + mask 双分支），预训练时无 cls token。与 MiniGPT-3D 下游推理使用的标准 PointTransformer（self-attention + cls token）实现不同，因此导出时需要额外补 cls 参数（由 `ckpt_extract.py` 自动随机初始化 `cls_token`/`cls_pos`）。
+- **PointTransformer（V2 / Point-MAE / Random）**：预训练直接采用与 MiniGPT-3D 完全一致的 PointTransformer 结构（self-attention + cls token），权重可无缝导出，无需额外合并。
 
 ### 实验对照关系
 
 | 对比维度 | 实验组 |
 |----------|--------|
-| 预训练数据域 | Objaverse (V1/V2) vs ShapeNet55-34 |
-| 编码器架构 | MaskTransformer (V1) vs PointTransformer (V2) |
+| 预训练数据域 | Objaverse (V1-random / V2 / Point-MAE×2) vs ShapeNet55-34 |
+| 编码器架构 | MaskTransformer (V1-random) vs PointTransformer (V2) |
 | 预训练任务 | PCP-MAE (V2) vs Point-MAE (ita=0) |
 | 预训练知识增益 | V2 vs Random (随机初始化) |
-| 冻结 vs 解冻 | 每个变体均做了 `freeze_pc: True` 与 `freeze_pc: False`（stage_5）对比 |
+| 冻结 vs 解冻 | 每个变体均做了 `freeze_pc: True` 与 `freeze_pc: False` 对比（见 §6.1） |
 
 ---
 
@@ -93,17 +104,32 @@
 
 ### 3.1 环境
 
+训练显卡已迁移至 **RTX 5090（Blackwell）**，MiniGPT-3D 下游训练/评测使用 conda 环境 **`minigpt5090`**（Python 3.10，PyTorch 2.7.1 + CUDA 12.8）。分步安装脚本见 [`env5090.sh`](env5090.sh)（请逐条复制命令执行，**不要**直接 `bash` 整个脚本）。
+
 ```bash
-conda create -n minigpt_3d python=3.10 -y
-conda activate minigpt_3d
+conda create -n minigpt5090 python=3.10 -y
+conda activate minigpt5090
 
-# PyTorch
-conda install pytorch==2.0.1 torchvision==0.15.2 cudatoolkit=11.8 -c pytorch -c nvidia
+# PyTorch 2.7.1 + CUDA 12.8
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
 
-# 其余依赖
+# 其余依赖参考 env5090.sh（transformers 4.36.2 / peft 0.7.1 等）
 cd /data/workspace/MiniGPT-3D
-pip install -r environment.yml  # 或手动安装
 ```
+
+> 历史环境 `minigpt_3d`（RTX 3090）安装步骤保留如下，供复现旧实验参考：
+>
+> ```bash
+> conda create -n minigpt_3d python=3.10 -y
+> conda activate minigpt_3d
+>
+> # PyTorch（RTX 3090）
+> conda install pytorch==2.0.1 torchvision==0.15.2 cudatoolkit=11.8 -c pytorch -c nvidia
+>
+> # 其余依赖
+> cd /data/workspace/MiniGPT-3D
+> pip install -r environment.yml  # 或手动安装
+> ```
 
 ### 3.2 权重下载
 
@@ -129,20 +155,20 @@ pip install -r environment.yml  # 或手动安装
 
 ## 4. 编码器预训练（PCP-MAE 侧）
 
-编码器预训练在 `/data/workspace/PCP-MAE_with_Objaverse/`（Objaverse）或 `/data/workspace/PCP-MAE/`（ShapeNet55-34）中进行。详细训练命令参考对应仓库的 README。
+编码器预训练在 `/data/workspace/PCP-MAE_with_Objaverse/`（Objaverse）或 `/data/workspace/PCP-MAE_with_ShapeNet/`（ShapeNet55-34）中进行。详细训练命令参考对应仓库的 README。
 
-### 4.1 V1：PCP-MAE + MaskTransformer（Objaverse）
+### 4.1 V1-random：PCP-MAE + MaskTransformer（Objaverse）
 
 ```bash
 cd /data/workspace/PCP-MAE_with_Objaverse
 
 CUDA_VISIBLE_DEVICES=0 python main.py \
-  --config cfgs/pretrain/base.yaml \
+  --config "cfgs/pretrain/[V1]PCP‑MAE+MaskTransformer.yaml" \
   --exp_name pcpmae_minigpt3d \
   --seed 42
 ```
 
-输出目录：`experiments/base/pretrain/pcpmae_minigpt3d/`
+输出目录：`experiments/[V1]PCP‑MAE+MaskTransformer/pretrain/pcpmae_minigpt3d/`
 
 ### 4.2 V2：PCP-MAE + PointTransformer（Objaverse）
 
@@ -150,37 +176,44 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
 cd /data/workspace/PCP-MAE_with_Objaverse
 
 CUDA_VISIBLE_DEVICES=0 python main.py \
-  --config cfgs/pretrain/base_minigpt_encoder.yaml \
+  --config "cfgs/pretrain/[V2]PCP‑MAE+PointTransformer.yaml" \
   --exp_name pcp_minigpt_encoder_objaverse \
   --seed 42
 ```
 
-输出目录：`experiments/base_minigpt_encoder/pretrain/pcp_minigpt_encoder_objaverse/`
+输出目录：`experiments/[V2]PCP‑MAE+PointTransformer/pretrain/pcp_minigpt_encoder_objaverse/`
 
-### 4.3 Point-MAE 消融（Objaverse）
+### 4.3 Point-MAE 消融（Objaverse，PointTransformer 或 MaskTransformer）
 
 ```bash
 cd /data/workspace/PCP-MAE_with_Objaverse
 
+# Point-MAE + PointTransformer
 CUDA_VISIBLE_DEVICES=0 python main.py \
-  --config cfgs/pretrain/ablation_point_mae.yaml \
+  --config "cfgs/pretrain/Point‑MAE+PointTransformer.yaml" \
   --exp_name point_mae_objaverse \
+  --seed 42
+
+# Point-MAE + MaskTransformer
+CUDA_VISIBLE_DEVICES=0 python main.py \
+  --config "cfgs/pretrain/Point‑MAE+MaskTransformer.yaml" \
+  --exp_name mask_mae_objaverse \
   --seed 42
 ```
 
-输出目录：`experiments/ablation_point_mae/pretrain/point_mae_objaverse/`
+输出目录：`experiments/Point‑MAE+PointTransformer/pretrain/point_mae_objaverse/`、`experiments/Point‑MAE+MaskTransformer/pretrain/mask_mae_objaverse/`
 
 ### 4.4 ShapeNet55-34 预训练
 
 ```bash
-cd /data/workspace/PCP-MAE
+cd /data/workspace/PCP-MAE_with_ShapeNet
 
 CUDA_VISIBLE_DEVICES=0 python main.py \
-  --config cfgs/pretrain/base.yaml \
+  --config "cfgs/pretrain/[ShapeNet55-34]PCP‑MAE+MaskTransformer.yaml" \
   --exp_name pcpmae_pretrain
 ```
 
-输出目录：`experiments/base/pretrain/pcpmae_pretrain/`
+输出目录：`experiments/[ShapeNet55-34]PCP‑MAE+MaskTransformer/pretrain/pcpmae_pretrain/`
 
 ---
 
@@ -192,74 +225,84 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
 /data/workspace/MiniGPT-3D/params_weight/pc_encoder/
 ```
 
-### 5.1 V1 权重导出（手动，无 cls）
+> 统一导出脚本为 `PCP-MAE_with_Objaverse/ckpt_extract.py`（`PCP-MAE_with_ShapeNet` 同名脚本）——支持全部编码器类型，并在导出 MaskTransformer 骨干时**自动补齐**缺失的 `cls_token`/`cls_pos`（trunc_normal，std=0.02）。
 
-V1 使用 MaskTransformer，预训练 checkpoint 中无 `cls_token`/`cls_pos`。
-
-```bash
-cd /data/workspace/PCP-MAE_with_Objaverse
-
-# 手动提取（参考 ckpt-extract_for_pcpmae-pretrain.py 的逻辑）
-python ckpt-extract_for_pcpmae-pretrain.py
-# 输出：point_model_pcpmae.pth
-
-# 复制到 MiniGPT-3D
-cp point_model_pcpmae.pth /data/workspace/MiniGPT-3D/params_weight/pc_encoder/
-```
-
-### 5.2 V1 hybrid 合并（补充 cls）
-
-将 Baseline 的 `cls_token` / `cls_pos` 并入 V1 骨干：
-
-```bash
-cd /data/workspace/MiniGPT-3D
-
-python hybrid.py
-# 输出：point_model_hybrid.pth（在 MiniGPT-3D 根目录）
-# 注意：hybrid.py 中的路径可能需要根据实际情况调整
-```
-
-`hybrid.py` 的逻辑：
-```python
-new['base_model']['cls_token'] = original['base_model']['cls_token']
-new['base_model']['cls_pos'] = original['base_model']['cls_pos']
-```
-
-### 5.3 V2 / Point-MAE 权重导出（含 cls）
-
-V2 和 Point-MAE 使用与 MiniGPT-3D 一致的 PointTransformer，checkpoint 中已包含 `cls_token`/`cls_pos`。
+### 5.1 V1-random 权重导出（自动补 cls）
 
 ```bash
 cd /data/workspace/PCP-MAE_with_Objaverse
 
-# V2：专用导出脚本
-python tools/export_minigpt_encoder.py \
-  --pcp-ckpt experiments/base_minigpt_encoder/pretrain/pcp_minigpt_encoder_objaverse/ckpt-last.pth \
-  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/point_model_pcp_v2.pth
-
-# Point-MAE：通用提取脚本
 python ckpt_extract.py \
-  --ckpt experiments/ablation_point_mae/pretrain/point_mae_objaverse/ckpt-last.pth \
-  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/point_model_pointmae.pth
+  --ckpt "experiments/[V1]PCP‑MAE+MaskTransformer/pretrain/pcpmae_minigpt3d/ckpt-best.pth" \
+  --out point_model_V1+random-cls.pth
+
+cp "point_model_V1+random-cls.pth" /data/workspace/MiniGPT-3D/params_weight/pc_encoder/
 ```
 
-### 5.4 ShapeNet55-34 权重修复
+### 5.2 V2 权重导出（含原生 cls）
 
-ShapeNet 数据仅 3 维 xyz，而 MiniGPT-3D 期望 6 维 xyz+rgb，且预训练为 MaskTransformer（无 cls）。需使用 `fix_pcpmae_shapenet.py` 修复：
+```bash
+cd /data/workspace/PCP-MAE_with_Objaverse
+
+python ckpt_extract.py \
+  --ckpt "experiments/[V2]PCP‑MAE+PointTransformer/pretrain/pcp_minigpt_encoder_objaverse/ckpt-best.pth" \
+  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/point_model_v2.pth
+```
+
+### 5.3 Point-MAE 权重导出
+
+```bash
+cd /data/workspace/PCP-MAE_with_Objaverse
+
+# Point-MAE + PointTransformer（含原生 cls）
+python ckpt_extract.py \
+  --ckpt "experiments/Point‑MAE+PointTransformer/pretrain/point_mae_objaverse/ckpt-best.pth" \
+  --out PointMAE+PointTransformer.pth
+
+# Point-MAE + MaskTransformer（自动补 cls）
+python ckpt_extract.py \
+  --ckpt "experiments/Point‑MAE+MaskTransformer/pretrain/mask_mae_objaverse/ckpt-best.pth" \
+  --out PointMAE+MaskTransformer+cls.pth
+
+# 导出后归档（旧名 → 新名，仅供参考）：
+#   point_model_pointmae.pth  → PointMAE+PointTransformer.pth
+#   point_model_maskmae.pth   → PointMAE+MaskTransformer+cls.pth
+#   point_model_pcpmae.pth    → PCPMAE+MaskTransformer.pth
+#   point_model_pcp_v2.pth    → PCPMAE+PointTransformer_old-name.pth
+#   point_model_hybrid.pth    → PCPMAE+MaskTransformer_hybrid-cls.pth（已废弃）
+#   pcpmae_ShapeNet.pth       → ShapeNet55-34_3ch.pth
+#   pcpmae_ShapeNet_fixed.pth → ShapeNet55-34_6ch+cls.pth
+```
+
+### 5.4 primitive-V1 导出（无 cls，保持实验完整性）
+
+如需复现「primitive-V1（无 cls）」的历史导出（与 `ckpt_extract.py` 自动补 cls 的行为相反），使用 MiniGPT-3D 侧的 `tools/export_primitive_v1.py`：
 
 ```bash
 cd /data/workspace/MiniGPT-3D
 
-python fix_pcpmae_shapenet.py \
-  --src params_weight/pc_encoder/pcpmae_ShapeNet.pth \
-  --dst params_weight/pc_encoder/pcpmae_ShapeNet_fixed.pth
+python tools/export_primitive_v1.py \
+  --ckpt "/data/workspace/PCP-MAE_with_Objaverse/experiments/[V1]PCP‑MAE+MaskTransformer/pretrain/pcpmae_minigpt3d/ckpt-best.pth" \
+  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/PCPMAE+MaskTransformer.pth
+```
+
+### 5.5 ShapeNet55-34 权重修复
+
+ShapeNet 数据仅 3 维 xyz，而 MiniGPT-3D 期望 6 维 xyz+rgb。需使用 `tools/fix_shapenet_weights.py` 修复（`ckpt_extract.py` 已在导出时自动补 cls，此步主要是 3ch→6ch）：
+
+```bash
+cd /data/workspace/MiniGPT-3D
+
+python tools/fix_shapenet_weights.py \
+  --src params_weight/pc_encoder/old/ShapeNet55-34_3ch.pth \
+  --dst params_weight/pc_encoder/old/ShapeNet55-34_6ch+cls.pth
 ```
 
 修复内容：
 1. `encoder.first_conv.0.weight`：`[128, 3, 1]` → `[128, 6, 1]`（RGB 通道补零，等价于黑色输入）
-2. 补充 `cls_token` / `cls_pos`（trunc_normal 随机初始化）
+2. 补充 `cls_token` / `cls_pos`（trunc_normal 随机初始化，若无）
 
-### 5.5 随机权重生成
+### 5.6 随机权重生成
 
 ```bash
 cd /data/workspace/MiniGPT-3D
@@ -268,15 +311,14 @@ bash random_weight.sh
 # 输出：params_weight/pc_encoder/point_model_random.pth
 ```
 
-### 5.6 权重导出脚本对照
+### 5.7 权重导出脚本对照
 
 | 脚本 | 位置 | 适用编码器 | 输出格式 |
 |------|------|-----------|----------|
-| `tools/export_minigpt_encoder.py` | PCP-MAE_with_Objaverse | V2 | 含 cls 的 `base_model` |
-| `ckpt_extract.py` | PCP-MAE / PCP-MAE_with_Objaverse | V2、Point-MAE | 含 cls，带完整性校验 |
-| `ckpt-extract_for_pcpmae-pretrain.py` | PCP-MAE_with_Objaverse | V1（手动提取） | 无 cls |
-| `hybrid.py` | MiniGPT-3D | V1 → V1 hybrid | 补充 cls |
-| `fix_pcpmae_shapenet.py` | MiniGPT-3D | ShapeNet55-34 | 3ch→6ch + 补 cls |
+| `ckpt_extract.py` | PCP-MAE_with_Objaverse / PCP-MAE_with_ShapeNet | 全部编码器 | 含 cls（自动补），带完整性校验 |
+| `tools/export_primitive_v1.py` | MiniGPT-3D | primitive-V1 | **无 cls**（保持原始） |
+| `tools/fix_shapenet_weights.py` | MiniGPT-3D | ShapeNet55-34 | 3ch→6ch + 补 cls |
+| `tools/merge_cls_from_baseline.py` | MiniGPT-3D | [已废弃] V1 hybrid | 从 Baseline 拷贝 cls |
 | `random_weight.sh` | MiniGPT-3D | Random | 随机初始化 |
 
 ---
@@ -285,24 +327,27 @@ bash random_weight.sh
 
 ### 6.1 修改训练配置
 
-在 `train_configs/MiniGPT_3D/stage_{1,2,3,4}.yaml`（以及可选的 `stage_5.yaml`）中设置 `pc_encoder_ckpt` 和 `freeze_pc`：
+在 `train_configs/MiniGPT_3D/stage_{1,2,3,4}.yaml` 中设置 `pc_encoder_ckpt` 和 `freeze_pc`：
 
 ```yaml
 model:
-  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_pcp_v2.pth"  # 替换为你的权重
-  freeze_pc: True    # 冻结编码器（默认）
-  # freeze_pc: False  # 解冻编码器（stage_5 实验）
+  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_v2.pth"  # 替换为你的权重
+  freeze_pc: True    # 冻结编码器
+  # freeze_pc: False  # 解冻编码器
 ```
 
-各实验对应配置示例：
+> **关于 `train_pc_encoder` vs `freeze_pc`**：如需解冻编码器，**只需把 `freeze_pc` 改成 `False`**，无需修改 `train_pc_encoder`。`train_pc_encoder` 字段名容易产生歧义，但它不是控制编码器是否参与训练的关键开关；实际决定编码器是否随训的是 `freeze_pc`。
+
+各实验对应配置示例（5 个候选编码器均已通过 freeze 与 unfreeze 两种训练验证；表中 `True` / `False` 为该变体被验证过的两种取值）：
 
 | 实验 | `pc_encoder_ckpt` | `freeze_pc` |
 |------|-------------------|-------------|
-| Baseline | `point_model.pth` | `True` |
-| V1 hybrid | `point_model_hybrid.pth` | `True` / `False` |
-| V2 | `point_model_pcp_v2.pth` | `True` / `False` |
-| Point-MAE | `point_model_pointmae.pth` | `True` |
-| ShapeNet55-34 | `pcpmae_ShapeNet_fixed.pth` | `True` / `False` |
+| Baseline | `point_model.pth` | `True` / `False` |
+| V1-random | `point_model_V1+random-cls.pth` | `True` / `False` |
+| V2 | `point_model_v2.pth` | `True` / `False` |
+| Point-MAE | `old/PointMAE+PointTransformer.pth` | `True` / `False` |
+| Point-MAE+MaskTransformer | `old/PointMAE+MaskTransformer+cls.pth` | `True`（已评估） |
+| ShapeNet55-34 | `old/ShapeNet55-34_6ch+cls.pth` | `True` / `False` |
 | Random | `point_model_random.pth` | `False`（必须解冻） |
 
 ### 6.2 启动训练
@@ -332,6 +377,8 @@ CUDA_VISIBLE_DEVICES=0 python train.py --cfg-path ./train_configs/MiniGPT_3D/sta
 | Stage 3 | 进一步微调 | 训练更多 epoch |
 | Stage 4 | 最终微调 | 最终权重用于评测 |
 
+> **Freeze / Unfreeze 验证状态**：当前每个编码器（V1-random、V2、Point-MAE、Point-MAE+MaskTransformer、ShapeNet55-34）均已通过 freeze 与 unfreeze 两种训练与评估。其中 **V1-random** 已完成 freeze 与 unfreeze 训练和评估，但评估完毕后其 `output/` 下的权重**未及时改名并粘贴 log 文件**，导致后续训练输出将其覆盖；**Point-MAE+MaskTransformer** 已完成评估，因此其「无 cls」旧导出（`old/PointMAE+MaskTransformer.pth`）无需再次评估。
+
 ---
 
 ## 7. 评估
@@ -345,7 +392,7 @@ model:
   ckpt: '/data/workspace/MiniGPT-3D/output/<实验名>/stage_3/checkpoint_2.pth'
   second_ckpt: "/data/workspace/MiniGPT-3D/output/<实验名>/stage_4/checkpoint_0.pth"
   # 若所有 stage 均为 freeze_pc: True，必须指定 pc_encoder_ckpt
-  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_pointmae.pth"
+  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_V1+random-cls.pth"
 ```
 
 > **注意**：若训练时 `freeze_pc: False`（解冻），checkpoint 中已包含 pc_encoder 权重，`pc_encoder_ckpt` 可留空或被 checkpoint 覆盖。若训练时 `freeze_pc: True`（冻结），评测配置中**必须**指定 `pc_encoder_ckpt`。
@@ -441,9 +488,9 @@ python pointllm/eval/traditional_evaluator.py \
 ```bash
 cd /data/workspace/MiniGPT-3D
 
-python point_model_VS_hybrid.py \
+python tools/compare_encoders_features.py \
   --ckpt-a ./params_weight/pc_encoder/point_model.pth \
-  --ckpt-b ./params_weight/pc_encoder/point_model_pcp_v2.pth \
+  --ckpt-b ./params_weight/pc_encoder/point_model_v2.pth \
   --data-path ./data/modelnet40_data/modelnet40_test_8192pts_fps.dat \
   --max-samples 2468
 ```
@@ -459,30 +506,31 @@ python point_model_VS_hybrid.py \
 
 ```bash
 cd /data/workspace/MiniGPT-3D
-python check_weights.py
+python tools/check_phi2_embedding.py
 ```
 
 ---
 
 ## 9. 工具脚本索引
 
+所有 MiniGPT-3D 侧的工具脚本已统一收敛到 `tools/` 目录（避免根目录散落、命名歧义）。
+
 ### 权重提取与修复
 
 | 文件 | 位置 | 用途 |
 |------|------|------|
-| `fix_pcpmae_shapenet.py` | MiniGPT-3D | ShapeNet 权重修复（3ch→6ch + 补 cls） |
-| `hybrid.py` | MiniGPT-3D | V1 权重合并 cls（从 Baseline 拷贝） |
+| `ckpt_extract.py` | PCP-MAE_with_ShapeNet / PCP-MAE_with_Objaverse | 通用权重提取（自动补 cls，见 §5） |
+| `tools/export_primitive_v1.py` | MiniGPT-3D | primitive-V1（无 cls）导出 |
+| `tools/fix_shapenet_weights.py` | MiniGPT-3D | ShapeNet 权重修复（3ch→6ch + 补 cls） |
+| `tools/merge_cls_from_baseline.py` | MiniGPT-3D | [已废弃] V1 hybrid 合并 cls（从 Baseline 拷贝） |
 | `random_weight.sh` | MiniGPT-3D | 生成随机初始化 PointTransformer 权重 |
-| `ckpt_extract.py` | PCP-MAE / PCP-MAE_with_Objaverse | 通用权重提取（V2/Point-MAE 适用） |
-| `tools/export_minigpt_encoder.py` | PCP-MAE_with_Objaverse | V2 专用导出脚本 |
-| `ckpt-extract_for_pcpmae-pretrain.py` | PCP-MAE_with_Objaverse | V1 手动提取参考脚本 |
 
 ### 诊断与评测
 
 | 文件 | 位置 | 用途 |
 |------|------|------|
-| `point_model_VS_hybrid.py` | MiniGPT-3D | 两个编码器特征对比（cosine、kNN、intra-inter） |
-| `check_weights.py` | MiniGPT-3D | 检查 Phi-2 嵌入是否与官方一致 |
+| `tools/compare_encoders_features.py` | MiniGPT-3D | 两个编码器特征对比（cosine、kNN、intra-inter） |
+| `tools/check_phi2_embedding.py` | MiniGPT-3D | 检查 Phi-2 嵌入是否与官方一致 |
 | `note.sh` | MiniGPT-3D | 评估命令速查 |
 
 ### 训练与评估
@@ -503,71 +551,87 @@ python check_weights.py
 
 ```
 params_weight/pc_encoder/
-├── point_model.pth              # Baseline（ULIP-2 / Point-BERT 官方）
-├── point_model_pcpmae.pth       # V1（原始，无 cls）
-├── point_model_hybrid.pth       # V1 hybrid（由 hybrid.py 生成，含 cls）
-├── point_model_pcp_v2.pth       # V2（PointTransformer + PCP-MAE）
-├── point_model_pointmae.pth     # Point-MAE 消融
-├── pcpmae_ShapeNet.pth          # ShapeNet55-34（原始，需修复）
-├── pcpmae_ShapeNet_fixed.pth    # ShapeNet55-34（修复后）
-└── point_model_random.pth       # 随机初始化消融
+├── point_model.pth                   # Baseline（ULIP-2 / Point-BERT 官方，float16）
+├── point_model_V1+random-cls.pth     # V1-random（PCP-MAE + MaskTransformer + 随机 cls，float32）
+├── point_model_v2.pth                # V2（PCP-MAE + PointTransformer，float32）
+├── point_model_random.pth            # Random（随机初始化消融，float32）
+└── old/                              # 已归档 / 废弃 / 历史导出权重（详见 §2）
+    ├── PointMAE+MaskTransformer.pth        # Point-MAE+MaskTransformer（无 cls 旧导出）
+    ├── PointMAE+MaskTransformer+cls.pth    # Point-MAE+MaskTransformer（含 cls，已评估）
+    ├── PointMAE+PointTransformer.pth       # Point-MAE+PointTransformer
+    ├── PCPMAE+MaskTransformer.pth          # primitive-V1（无 cls）
+    ├── PCPMAE+MaskTransformer_hybrid-cls.pth   # V1 hybrid（已废弃）
+    ├── PCPMAE+PointTransformer_old-name.pth    # V2 旧导出名
+    ├── ShapeNet55-34_3ch.pth           # ShapeNet55-34（修复前，3ch）
+    └── ShapeNet55-34_6ch+cls.pth       # ShapeNet55-34（修复后，6ch + cls）
 ```
+
+> **dtype 规律**：Baseline `point_model.pth` 为 **float16**；其余当前 / 归档权重均为 **float32**（MaskTransformer 的 `cls_token`/`cls_pos` 由随机初始化生成）。
 
 ### 10.2 预训练 checkpoint 存档
 
-预训练的完整 checkpoint 已备份至：
+预训练 checkpoint 与日志统一归档在 `/data/datasets/PCP_checkpoint/`，按训练策略分层（每个预训练变体一个子目录）：
 
 ```
 /data/datasets/PCP_checkpoint/
-├── Objaverse_bad_loss/          # V1 训练早期（loss 异常高）
-├── Objaverse_good_loss/         # V1 训练稳定后
-├── Objaverse_v2/                # V2 预训练 checkpoint
-├── official/                    # 官方 PCP-MAE 预训练权重
-└── ShapeNet55-34/               # ShapeNet55-34 预训练 checkpoint
+├── Standard CosineAnnealing/          # 最终采用的训练策略（无早停 + 余弦退火）
+│   ├── [V1]PCP‑MAE+MaskTransformer/     # 含 ckpt-best.pth（V1-random 的最终使用权重）
+│   └── [V2]PCP‑MAE+PointTransformer/    # 含 ckpt-best.pth（V2 的最终使用权重）
+├── Early-Stopping/                    # 历史（早停）策略，5 个变体各一个子目录
+├── official/                          # 官方 PCP-MAE 预训练权重（PCP-MAE-275.pth / PCP-MAE-300.pth）
+└── Redundant training tests/          # 冗余训练测试（保留备查，勿作实验依据）
 ```
 
 ### 10.3 MiniGPT-3D 训练输出
 
-已完成的实验输出：
+下游四阶段训练的输出统一归档在 `/data/datasets/MiniGPT-3D/<实验名>/`，每个实验目录下包含 `stage_1/ … stage_4/` 及对应 `log.txt`：
 
 ```
 /data/datasets/MiniGPT-3D/
-├── first-checkpoint/            # 首次成功复现
-├── first-pcpmae/                # 首次 PCP-MAE 接入
-├── hybrid-with-objaverse/       # V1 实验
-├── hybrid-with-objaverse_unfreeze/  # V1 解冻实验
-├── pointmae/                    # Point-MAE 实验
-├── random_unfreeze/             # 随机权重解冻消融
-├── ShapeNet/                    # ShapeNet55-34 冻结实验
-├── ShapeNet_unfreeze/           # ShapeNet55-34 解冻实验
-├── v2/                          # V2 冻结实验
-└── v2_unfreeze/                 # V2 解冻实验
+├── baseline_retrain/            # Baseline 重练
+├── baseline_unfreeze/           # Baseline 解冻
+├── PointMAE-PointTransformer/   # Point-MAE + PointTransformer 冻结
+├── PointMAE-Point_unfreeze/     # Point-MAE + PointTransformer 解冻
+├── primitive-V1/                # 历史 primitive-V1（无 cls）
+├── random_unfreeze/             # Random 解冻消融
+├── ShapeNet/                    # ShapeNet55-34 冻结
+├── ShapeNet_unfreeze/           # ShapeNet55-34 解冻
+├── V1-hybrid/                   # 历史 V1 hybrid（已废弃）
+├── V1-hybrid_unfreeze/          # 历史 V1 hybrid 解冻（已废弃）
+├── V1-random(pcp-mask)/         # V1-random 冻结
+├── v2/                          # V2 冻结
+└── v2_unfreeze/                 # V2 解冻
 ```
+
+> **注意**：V1-random 的评估已完成，但评估完毕后其 `output/` 权重未及时改名并粘贴 log，后续训练输出覆盖了原目录（详见 §6.3）。
 
 ### 10.4 权重复制命令参考
 
 ```bash
-# 从存档恢复权重到 MiniGPT-3D（示例）
-cp /data/datasets/PCP_checkpoint/Objaverse_v2/ckpt-last.pth \
-   /data/workspace/PCP-MAE_with_Objaverse/experiments/base_minigpt_encoder/pretrain/pcp_minigpt_encoder_objaverse/ckpt-last.pth
+# 从存档恢复 V1/V2 最终使用权重（ckpt-best.pth）
+cp "/data/datasets/PCP_checkpoint/Standard CosineAnnealing/[V1]PCP‑MAE+MaskTransformer/ckpt-best.pth" \
+   "/data/workspace/PCP-MAE_with_Objaverse/experiments/[V1]PCP‑MAE+MaskTransformer/pretrain/pcpmae_minigpt3d/ckpt-best.pth"
+
+cp "/data/datasets/PCP_checkpoint/Standard CosineAnnealing/[V2]PCP‑MAE+PointTransformer/ckpt-best.pth" \
+   "/data/workspace/PCP-MAE_with_Objaverse/experiments/[V2]PCP‑MAE+PointTransformer/pretrain/pcp_minigpt_encoder_objaverse/ckpt-best.pth"
 
 # 导出 V2 权重
 cd /data/workspace/PCP-MAE_with_Objaverse
-python tools/export_minigpt_encoder.py \
-  --pcp-ckpt experiments/base_minigpt_encoder/pretrain/pcp_minigpt_encoder_objaverse/ckpt-last.pth \
-  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/point_model_pcp_v2.pth
+python ckpt_extract.py \
+  --ckpt "experiments/[V2]PCP‑MAE+PointTransformer/pretrain/pcp_minigpt_encoder_objaverse/ckpt-best.pth" \
+  --out /data/workspace/MiniGPT-3D/params_weight/pc_encoder/point_model_v2.pth
 ```
 
 ---
 
 ## 11. 环境与踩坑记录
 
-- **CUDA 兼容性**：RTX 3090 下使用 PyTorch 2.0.1 + CUDA 11.8；RTX 5090 尝试了多个 CUDA 版本均存在兼容性问题，最终放弃。
-- **C++ 扩展编译**：`chamfer_dist` 和 `emd` 扩展在 PyTorch 2.x 下可能需要手动修复编译错误。
+- **CUDA / 显卡**：已从 RTX 3090（`minigpt_3d` / `pcpmae`，PyTorch 2.0.1 + CUDA 11.8）迁移至 **RTX 5090（Blackwell，sm_120）**，MiniGPT-3D 下游使用 **`minigpt5090`**（PyTorch 2.7.1 + CUDA 12.8），PCP-MAE 预训练使用 **`mae5090`**（PyTorch 2.13.0 + cu130）。RTX 5090 需要 PyTorch ≥2.7（Blackwell 支持），无需再尝试低版本 CUDA 组合。
+- **C++ 扩展编译**：`chamfer_dist` / `emd` 在 PyTorch 2.x 下可能需要手动修复编译错误；`mae5090` 环境已改用纯 PyTorch 实现，**无需编译**（详见 PCP-MAE_with_Objaverse README §1.1）。
 - **AMP / bfloat16**：预训练中开启 bfloat16 AMP 可节省显存，但需注意 NaN 问题（尤其在 Chamfer 距离计算中）。
 - **BLIP2 权重**：官方硬编码 URL 不可访问，需手动下载后修改 `minigpt_v2.py` 中的 `load_from_pretrained` 路径。
 - **Qwen API**：原 Qwen2-72B-Instruct 已下线，已适配 Qwen-Flash（阿里云百炼）。
-- **单卡训练**：PCP-MAE 预训练通过 `step_per_update` 累积梯度实现等效大 batch，单卡 RTX 3090 可训练。
+- **单卡训练**：PCP-MAE 预训练通过 `step_per_update` 累积梯度实现等效大 batch；RTX 5090（24GB）+ bf16 可支撑有效 batch=64。
 
 ---
 

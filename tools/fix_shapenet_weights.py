@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-Fix pcpmae_ShapeNet.pth for MiniGPT-3D compatibility.
+Fix ShapeNet55-34 exported weight for MiniGPT-3D compatibility.
 
 Two issues to fix:
 1. encoder.first_conv.0.weight:  [128, 3, 1]  ->  [128, 6, 1]
    ShapeNet has XYZ only (3ch), MiniGPT-3D expects XYZ+RGB (6ch).
    Solution: pad RGB channels with zeros (since default color is black).
 2. Missing cls_token, cls_pos: randomly initialized.
+
+Usage (from MiniGPT-3D repo root):
+    python tools/fix_shapenet_weights.py \
+        --src params_weight/pc_encoder/old/ShapeNet55-34_3ch.pth \
+        --dst params_weight/pc_encoder/old/ShapeNet55-34_6ch+cls.pth
 """
 
 import argparse
@@ -83,7 +88,7 @@ def fix_shapenet_weights(src_path, dst_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--src', default='params_weight/pc_encoder/pcpmae_ShapeNet.pth')
-    parser.add_argument('--dst', default='params_weight/pc_encoder/pcpmae_ShapeNet_fixed.pth')
+    parser.add_argument('--src', default='params_weight/pc_encoder/old/ShapeNet55-34_3ch.pth')
+    parser.add_argument('--dst', default='params_weight/pc_encoder/old/ShapeNet55-34_6ch+cls.pth')
     args = parser.parse_args()
     fix_shapenet_weights(args.src, args.dst)

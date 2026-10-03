@@ -11,7 +11,7 @@ model:
   lora_alpha: 16
   only_train_pc_linear: False
   train_pc_encoder: True               # PCP-MAE unfrozen: pc_encoder participates in Stage III training
-  freeze_pc: False                 # Allow pc_encoder parameter updates
+  freeze_pc: True                 # Allow pc_encoder parameter updates
   pc_linear_layer: 2
   use_MQE: False  #  False: not use  query expert
   query_expert_router_type: 'Sparse Router'  # three types： Constant Router, Sparse Router,  Soft Router
@@ -22,7 +22,7 @@ model:
   train_QFormer_norm: True
   QFormer_lora_module: ["query", "key",  "value"]
   # pc_encoder_ckpt: "./params_weight/pc_encoder/point_model.pth"           # 原始 Point-BERT (baseline)
-  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model.pth"      # PCP-MAE 预训练
+  pc_encoder_ckpt: "./params_weight/pc_encoder/point_model_V1+random-cls.pth"      # PCP-MAE 预训练
 
 datasets:
   Objaverse_detailed:
@@ -67,7 +67,7 @@ run:
   iters_per_epoch: 10000
 
   seed: 42
-  output_dir: "./output/pcpmae/stage_3"
+  output_dir: "./output/temp/stage_3"
 
   amp: True
   resume_ckpt_path: null
